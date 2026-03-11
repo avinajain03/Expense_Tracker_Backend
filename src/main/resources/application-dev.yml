@@ -1,0 +1,9 @@
+spring:
+  data:
+    mongodb:
+      uri: mongodb://localhost:27017/expense_tracker_dev
+
+logging:
+  level:
+    com.expensetracker: DEBUG
+    org.springframework.data.mongodb: DEBUG
