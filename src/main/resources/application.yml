@@ -16,7 +16,7 @@ server:
 # Custom app properties
 app:
   jwt:
-    secret: ${JWT_SECRET:your-256-bit-secret-key-change-in-production}
+    secret: ${JWT_SECRET:dGhpcy1pcy1hLXNlY3VyZS0yNTYtYml0LXNlY3JldC1rZXktZm9yLWRldg==}
     access-token-expiry: 900000       # 15 minutes
     refresh-token-expiry: 604800000   # 7 days
   ai:
