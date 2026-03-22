@@ -32,6 +32,7 @@ public class SmsParserService {
     private final DeduplicationService deduplicationService;
     private final IngestionLogRepository ingestionLogRepository;
     private final TransactionRepository transactionRepository;
+    private final TransactionExtractor transactionExtractor;
 
     /**
      * Parse a single SMS text: regex → log → create transaction.
@@ -52,15 +53,23 @@ public class SmsParserService {
         Optional<ParsedTransactionDTO> parsed = smsRegexPatterns.parse(trimmed);
 
         if (parsed.isEmpty() || parsed.get().getConfidence() < 0.7) {
-            // No match or low confidence → mark as FAILED (AI fallback deferred)
-            log.debug("SMS parse failed or low confidence for user {}: {}", userId, trimmed);
-            logIngestion(userId, trimmed, null, ParsingStatus.FAILED, null,
-                    parsed.isEmpty() ? "No regex pattern matched" : "Confidence below threshold");
-            return ParsedTransactionDTO.builder()
-                    .rawText(trimmed)
-                    .status("FAILED")
-                    .confidence(parsed.map(ParsedTransactionDTO::getConfidence).orElse(0.0))
-                    .build();
+            // Regex failed or low confidence → try AI fallback
+            log.debug("Regex miss or low confidence for user {}, attempting AI fallback", userId);
+            Optional<ParsedTransactionDTO> aiResult = transactionExtractor.extract(trimmed);
+
+            if (aiResult.isEmpty()) {
+                // AI also failed or unconfigured
+                logIngestion(userId, trimmed, null, ParsingStatus.FAILED, null,
+                        parsed.isEmpty() ? "No regex pattern matched" : "Confidence below threshold");
+                return ParsedTransactionDTO.builder()
+                        .rawText(trimmed)
+                        .status("FAILED")
+                        .confidence(parsed.map(ParsedTransactionDTO::getConfidence).orElse(0.0))
+                        .build();
+            }
+
+            // AI succeeded — continue processing with AI-extracted DTO
+            parsed = aiResult;
         }
 
         ParsedTransactionDTO dto = parsed.get();
