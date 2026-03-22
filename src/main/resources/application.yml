@@ -20,9 +20,9 @@ app:
     access-token-expiry: 900000       # 15 minutes
     refresh-token-expiry: 604800000   # 7 days
   ai:
-    api-key: ${AI_API_KEY:}
-    api-url: https://generativelanguage.googleapis.com/v1beta
-    model: gemini-2.0-flash
+    api-key: ${OPENAI_API_KEY:}
+    api-url: https://api.openai.com/v1
+    model: gpt-4o-mini
   cors:
     allowed-origins: http://localhost:4200
 
