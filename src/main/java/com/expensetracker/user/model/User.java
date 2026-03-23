@@ -41,6 +41,8 @@ public class User {
     @Builder.Default
     private Preferences preferences = new Preferences();
 
+    private EmailConnection emailConnection;
+
     @CreatedDate
     private Instant createdAt;
 
@@ -55,5 +57,22 @@ public class User {
         private String theme = "dark";
         private String defaultUpiApp = "gpay";
         private boolean notificationsEnabled = true;
+    }
+
+    // Embedded email connection for Gmail OAuth / IMAP
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class EmailConnection {
+        private String provider;           // GMAIL or IMAP
+        private String email;              // connected email address
+        private String encryptedRefreshToken; // AES-encrypted refresh token
+        private String imapHost;           // IMAP host (for IMAP provider)
+        private Integer imapPort;          // IMAP port
+        private String encryptedImapPassword; // AES-encrypted IMAP password
+        private boolean useSsl;
+        private Instant lastSyncTime;
+        private int totalImported;
     }
 }
