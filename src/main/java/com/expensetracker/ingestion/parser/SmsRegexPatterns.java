@@ -85,6 +85,17 @@ public class SmsRegexPatterns {
                             Pattern.CASE_INSENSITIVE | Pattern.DOTALL),
                     null, null, 0.75),
 
+            // Credit Card: "INR 10152.00 was spent at MAKEMYTRIP INDIA PVT NEW DELHI on 09-MAR-2020 on your ... Credit Card"
+            // group(1)=amount, group(2)=merchant — date is non-capturing, routes through UPI branch
+            new SmsPattern(
+                    Pattern.compile(
+                            "(?:Rs\\.?|INR\\s?)([\\d,]+\\.?\\d*)\\s+was\\s+(?:spent|used|debited)\\s+at\\s+" +
+                            "([A-Za-z0-9][A-Za-z0-9 ,\\.]*?)\\s+(?:IND\\s+)?on\\s+" +
+                            "(?:\\d{1,2}[\\-/]\\w{3,9}[\\-/]\\d{2,4}).*?" +
+                            "(?:Credit Card|Debit Card|Card)",
+                            Pattern.CASE_INSENSITIVE | Pattern.DOTALL),
+                    null, "CARD", 0.87),
+
             // === UPI-SPECIFIC PATTERNS ===
 
             // GPay pattern: "Paid Rs.450 to SWIGGY using Google Pay. UPI Ref: 412345678901"
@@ -124,7 +135,19 @@ public class SmsRegexPatterns {
                             "(?:made\\s+)?(?:to)\\s+([A-Za-z0-9 _\\-]+?)\\s+" +
                             "(?:via|on|using)\\s+CRED",
                             Pattern.CASE_INSENSITIVE | Pattern.DOTALL),
-                    null, "CRED", 0.90)
+                    null, "CRED", 0.90),
+
+            // === AXIS / GENERIC BANK UPI MULTI-LINE PATTERNS ===
+
+            // Axis Bank UPI multi-line: "INR 6720 debited\nA/c no. XXXXXX47845\n23-03-26, 23:52:42\nUPI/P2A/402832007488/BUDIMUDI SRINIVASA"
+            // group(1)=amount, group(2)=merchant — date and ref use non-capturing groups to align with UPI branch
+            new SmsPattern(
+                    Pattern.compile(
+                            "(?:INR|Rs\\.?)\\s*([\\d,]+\\.?\\d*)\\s*debited.*?" +
+                            "(?:\\d{2}[\\-/]\\d{2}[\\-/]\\d{2,4}).*?" +
+                            "UPI/(?:P2A|P2M|P2P|UPI)/(?:[A-Za-z0-9]+)/([A-Za-z][A-Za-z0-9 ]*)",
+                            Pattern.CASE_INSENSITIVE | Pattern.DOTALL),
+                    "AXIS", "OTHER", 0.88)
     );
 
     /**
@@ -204,7 +227,7 @@ public class SmsRegexPatterns {
                 .refNumber(refNumber)
                 .bankName(bankName)
                 .upiPlatform(upiPlatform)
-                .paymentMode(upiPlatform != null ? "UPI" : null)
+                .paymentMode("CARD".equalsIgnoreCase(upiPlatform) ? "CARD" : upiPlatform != null ? "UPI" : null)
                 .transactionType(transactionType)
                 .confidence(sp.baseConfidence)
                 .rawText(rawText)

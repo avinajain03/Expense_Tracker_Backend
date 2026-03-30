@@ -89,7 +89,9 @@ public class SmsParserService {
                 .merchant(dto.getMerchant())
                 .date(dto.getDate() != null ? dto.getDate() : Instant.now())
                 .upiPlatform(mapUpiPlatform(dto.getUpiPlatform()))
-                .paymentMode(mapPaymentMode(dto.getPaymentMode()))
+                .paymentMode(mapPaymentMode(dto.getPaymentMode() != null ? dto.getPaymentMode()
+                        : "CARD".equalsIgnoreCase(dto.getUpiPlatform()) ? "CARD"
+                        : dto.getUpiPlatform() != null ? "UPI" : null))
                 .source(IngestionSource.SMS)
                 .parsingConfidence(dto.getConfidence())
                 .status(TransactionStatus.AUTO_PARSED)

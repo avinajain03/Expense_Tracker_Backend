@@ -1,5 +1,6 @@
 package com.expensetracker.ingestion.service;
 
+import com.expensetracker.ingestion.model.ParsingStatus;
 import com.expensetracker.ingestion.repository.IngestionLogRepository;
 import com.expensetracker.transaction.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
@@ -25,7 +26,10 @@ public class DeduplicationService {
      * Check if the exact raw content has already been ingested for this user.
      */
     public boolean isDuplicateRaw(String userId, String rawContent) {
-        boolean dup = ingestionLogRepository.existsByUserIdAndRawContent(userId, rawContent.trim());
+        // Only treat as duplicate if a non-FAILED entry exists.
+        // FAILED entries (no regex match) should be retried after parser improvements.
+        boolean dup = ingestionLogRepository
+                .existsByUserIdAndRawContentAndParsingStatusNot(userId, rawContent.trim(), ParsingStatus.FAILED);
         if (dup) {
             log.debug("Duplicate raw content detected for user {}", userId);
         }
