@@ -29,6 +29,9 @@ app:
     redirect-uri: ${GOOGLE_REDIRECT_URI:http://localhost:4200/auth/google/callback}
   encryption:
     secret: ${ENCRYPTION_SECRET:default-32-char-secret-key-change!}
+  statement:
+    max-rows-per-file: 5000
+    supported-banks: HDFC,SBI,ICICI,AXIS,KOTAK,OTHER
   cors:
     allowed-origins: http://localhost:4200
 

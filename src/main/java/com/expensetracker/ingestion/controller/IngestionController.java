@@ -6,6 +6,7 @@ import com.expensetracker.ingestion.model.RawIngestionLog;
 import com.expensetracker.ingestion.repository.IngestionLogRepository;
 import com.expensetracker.ingestion.service.EmailParserService;
 import com.expensetracker.ingestion.service.SmsParserService;
+import com.expensetracker.ingestion.service.StatementParserService;
 import com.expensetracker.user.model.User;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -14,9 +15,13 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/v1/ingest")
@@ -26,6 +31,7 @@ public class IngestionController {
 
     private final SmsParserService smsParserService;
     private final EmailParserService emailParserService;
+    private final StatementParserService statementParserService;
     private final IngestionLogRepository ingestionLogRepository;
 
     // ── SMS Endpoints ─────────────────────────────────────────────────
@@ -108,6 +114,64 @@ public class IngestionController {
         return ResponseEntity.ok(ApiResponse.success(status));
     }
 
+    // ── Statement Endpoints ───────────────────────────────────────────
+
+    /**
+     * Upload a bank statement file (PDF, CSV, or Excel) for parsing.
+     * Extracts transactions from the file and stores them in the database.
+     */
+    @PostMapping(value = "/statement/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Upload bank statement (PDF/CSV/Excel) for transaction parsing")
+    public ResponseEntity<ApiResponse<StatementUploadResponse>> uploadStatement(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "bankName", defaultValue = "OTHER") String bankName,
+            @AuthenticationPrincipal User user) {
+
+        // Validate file
+        if (file.isEmpty()) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("File is empty. Please upload a valid bank statement."));
+        }
+
+        String fileName = file.getOriginalFilename() != null ? file.getOriginalFilename() : "";
+        if (!isSupportedFileType(fileName)) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Unsupported file type. Please upload a PDF, CSV, or Excel (.xlsx) file."));
+        }
+
+        StatementUploadResponse response = statementParserService.parseStatement(
+                user.getId(), file, bankName.toUpperCase());
+
+        String message = String.format("Statement parsed: %d transactions found, %d duplicates, %d failed",
+                response.getParsedCount(), response.getDuplicateCount(), response.getFailedCount());
+
+        return ResponseEntity.ok(ApiResponse.success(message, response));
+    }
+
+    /**
+     * Check the parsing status of a specific ingestion log entry (for large files).
+     */
+    @GetMapping("/statement/{id}/status")
+    @Operation(summary = "Check statement parsing status by ingestion log ID")
+    public ResponseEntity<ApiResponse<RawIngestionLog>> getStatementStatus(
+            @PathVariable String id,
+            @AuthenticationPrincipal User user) {
+
+        Optional<RawIngestionLog> logEntry = ingestionLogRepository.findById(id);
+        if (logEntry.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        // Verify the log belongs to the authenticated user
+        RawIngestionLog entry = logEntry.get();
+        if (!entry.getUserId().equals(user.getId())) {
+            return ResponseEntity.status(403)
+                    .body(ApiResponse.error("Access denied to this ingestion log entry"));
+        }
+
+        return ResponseEntity.ok(ApiResponse.success(entry));
+    }
+
     // ── Ingestion Log ─────────────────────────────────────────────────
 
     /**
@@ -123,6 +187,14 @@ public class IngestionController {
         Pageable pageable = PageRequest.of(page, size);
         Page<RawIngestionLog> logs = ingestionLogRepository.findByUserIdOrderByCreatedAtDesc(user.getId(), pageable);
         return ResponseEntity.ok(ApiResponse.success(logs));
+    }
+
+    // ── Private Helpers ───────────────────────────────────────────────
+
+    private boolean isSupportedFileType(String fileName) {
+        String lower = fileName.toLowerCase();
+        return lower.endsWith(".pdf") || lower.endsWith(".csv")
+                || lower.endsWith(".xlsx") || lower.endsWith(".xls");
     }
 }
 
